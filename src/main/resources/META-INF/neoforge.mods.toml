@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[1,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="everforge_mod"
+version="0.3.4"
+displayName="Everforge Mod"
+logoFile="everforge_icon.png"
+authors="Everforge"
+description='''
+Official companion mod for Everforge.
+Provides client branding and the foundation for server-side Everforge integrations.
+'''
+
+[[mixins]]
+config="everforge_mod.mixins.json"
+
+[[dependencies.everforge_mod]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.250,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.everforge_mod]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1]"
+ordering="NONE"
+side="BOTH"

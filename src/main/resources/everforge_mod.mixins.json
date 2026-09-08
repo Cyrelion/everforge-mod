@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "de.everforge.mod.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "PanoramaRendererMixin",
+    "LogoRendererMixin",
+    "TitleScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
