@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-JAR="${1:-build/libs/everforge-mod-0.3.4.jar}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MOD_VERSION="$(sed -n 's/^mod_version=//p' "$SCRIPT_DIR/gradle.properties")"
+[[ -n "$MOD_VERSION" ]] || { echo "Missing mod_version in gradle.properties" >&2; exit 1; }
+JAR="${1:-$SCRIPT_DIR/build/libs/everforge-mod-${MOD_VERSION}.jar}"
 [[ -f "$JAR" ]] || { echo "Missing JAR: $JAR" >&2; exit 1; }
 
 required=(
@@ -11,9 +14,9 @@ required=(
   "de/everforge/mod/client/TitleScreenRenderer.class"
   "de/everforge/mod/client/mixin/PanoramaRendererMixin.class"
   "de/everforge/mod/client/mixin/LogoRendererMixin.class"
-  "de/everforge/mod/client/mixin/TitleScreenMixin.class
+  "de/everforge/mod/client/mixin/TitleScreenMixin.class"
   "de/everforge/mod/server/worldedit/WorldEditOpenPacIntegration.class"
-  "de/everforge/mod/server/worldedit/OpenPacClaimExtent.class""
+  "de/everforge/mod/server/worldedit/OpenPacClaimExtent.class"
   "assets/everforge_mod/textures/gui/title/background.png"
   "assets/everforge_mod/textures/gui/title/logo.png"
 )

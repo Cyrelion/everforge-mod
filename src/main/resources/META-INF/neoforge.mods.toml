@@ -4,7 +4,7 @@ license="All Rights Reserved"
 
 [[mods]]
 modId="everforge_mod"
-version="0.3.4"
+version="${mod_version}"
 displayName="Everforge Mod"
 logoFile="everforge_icon.png"
 authors="Everforge"

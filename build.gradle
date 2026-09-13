@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'de.everforge'
-version = '0.3.4'
+version = providers.gradleProperty('mod_version').get()
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
@@ -18,6 +18,15 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('jar', Jar).configure {
     archiveBaseName = 'everforge-mod'
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def modVersion = providers.gradleProperty('mod_version')
+    inputs.property('mod_version', modVersion)
+
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(mod_version: modVersion.get())
+    }
 }
 
 
