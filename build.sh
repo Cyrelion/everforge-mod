@@ -3,13 +3,8 @@ set -Eeuo pipefail
 
 ./gradlew clean build
 
-JAR="build/libs/everforge-mod-0.2.0.jar"
-[[ -f "$JAR" ]] || { echo "Missing $JAR" >&2; exit 1; }
+./verify-jar.sh
 
-./verify-jar.sh "$JAR"
-
-echo
-echo "Built: $JAR"
 echo
 echo "NEXT:"
 echo "  Replace the Everforge Mod JAR in Everforge-Test with this file."
