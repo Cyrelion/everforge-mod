@@ -1,5 +1,6 @@
 package de.everforge.mod;
 
+import de.everforge.mod.server.opac.OpenPacAutoMode;
 import de.everforge.mod.server.opac.OpenPacServerForceloadHotfix;
 import de.everforge.mod.server.worldedit.WorldEditOpenPacIntegration;
 import net.neoforged.fml.ModList;
@@ -19,6 +20,7 @@ public final class EverforgeMod {
         ModList mods = ModList.get();
         if (mods.isLoaded("openpartiesandclaims")) {
             OpenPacServerForceloadHotfix.install();
+            OpenPacAutoMode.install();
         }
         if (mods.isLoaded("worldedit") && mods.isLoaded("openpartiesandclaims")) {
             WorldEditOpenPacIntegration.install();
