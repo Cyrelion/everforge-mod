@@ -15,7 +15,7 @@ final class MapSurveyConfig {
     int xMax = 20000;
     int zMin = -10000;
     int zMax = 20000;
-    int altitude = 180;
+    int altitude = 550;
     int laneSpacing = 272;
     double speedMultiplier = 4.0D;
     double arrivalTolerance = 6.0D;
