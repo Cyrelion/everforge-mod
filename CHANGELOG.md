@@ -3,6 +3,17 @@
 
 All notable changes to the Everforge Mod are documented in this file.
 
+## 0.3.8
+
+### Added
+
+- `/mapsurvey start west` starts the survey from the player's current position and scans the first lane westbound.
+- `/mapsurvey start east` starts the survey from the player's current position and scans the first lane eastbound.
+
+### Changed
+
+- Current-position starts use the player's current Z coordinate as the first survey lane and continue the snake pattern toward the configured southern Z bound.
+
 ## 0.3.7
 
 ### Added
