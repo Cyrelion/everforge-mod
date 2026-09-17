@@ -28,6 +28,8 @@ public final class MapSurveyClient {
     private static MapSurveyConfig config = MapSurveyConfig.load();
     private static boolean active;
     private static boolean paused;
+    private static boolean firstLaneWestbound;
+    private static int surveyZMin = config.zMin;
     private static int laneIndex;
     private static Phase phase = Phase.ALIGN_TO_START;
     private static long tickCounter;
@@ -38,7 +40,10 @@ public final class MapSurveyClient {
     private static void onRegisterClientCommands(RegisterClientCommandsEvent event) {
         event.getDispatcher().register(
             Commands.literal("mapsurvey")
-                .then(Commands.literal("start").executes(ctx -> start()))
+                .then(Commands.literal("start")
+                    .executes(ctx -> start())
+                    .then(Commands.literal("west").executes(ctx -> startFromCurrent(true)))
+                    .then(Commands.literal("east").executes(ctx -> startFromCurrent(false))))
                 .then(Commands.literal("pause").executes(ctx -> pause()))
                 .then(Commands.literal("resume").executes(ctx -> resume()))
                 .then(Commands.literal("stop").executes(ctx -> stop(false)))
@@ -84,7 +89,7 @@ public final class MapSurveyClient {
             return;
         }
 
-        if (laneIndex >= config.laneCount() || phase == Phase.COMPLETE) {
+        if (laneIndex >= laneCount() || phase == Phase.COMPLETE) {
             stop(true);
             return;
         }
@@ -105,25 +110,62 @@ public final class MapSurveyClient {
     private static int start() {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
-        if (player == null) {
-            message("Map survey cannot start before joining a world.");
-            return 0;
-        }
-        if (!player.isSpectator() && !player.getAbilities().flying) {
-            message("Map survey requires spectator mode or active creative flight.");
+        if (!validatePlayerForStart(player)) {
             return 0;
         }
 
         config = MapSurveyConfig.load();
+        surveyZMin = config.zMin;
+        firstLaneWestbound = false;
         laneIndex = 0;
         phase = Phase.ALIGN_TO_START;
         paused = false;
         active = true;
         tickCounter = 0L;
-        message("Map survey started. " + config.laneCount() + " lanes, spacing " + config.laneSpacing
-            + ", speed " + format(config.speedMultiplier) + " blocks/s.");
+        message("Map survey started from configured north-west corner. " + laneCount() + " lanes, spacing "
+            + config.laneSpacing + ", speed " + format(config.speedMultiplier) + " blocks/s.");
         showProgress(false);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static int startFromCurrent(boolean westbound) {
+        Minecraft minecraft = Minecraft.getInstance();
+        LocalPlayer player = minecraft.player;
+        if (!validatePlayerForStart(player)) {
+            return 0;
+        }
+
+        config = MapSurveyConfig.load();
+        int x = Mth.floor(player.getX());
+        int z = Mth.floor(player.getZ());
+        if (x < config.xMin || x > config.xMax || z < config.zMin || z > config.zMax) {
+            message("Current position is outside the configured map survey bounds.");
+            return 0;
+        }
+
+        surveyZMin = z;
+        firstLaneWestbound = westbound;
+        laneIndex = 0;
+        phase = Phase.SCAN_LANE;
+        paused = false;
+        active = true;
+        tickCounter = 0L;
+        message("Map survey started from current position at X=" + x + ", Z=" + z + ", heading "
+            + (westbound ? "west" : "east") + ". " + laneCount() + " lanes remain.");
+        showProgress(false);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static boolean validatePlayerForStart(LocalPlayer player) {
+        if (player == null) {
+            message("Map survey cannot start before joining a world.");
+            return false;
+        }
+        if (!player.isSpectator() && !player.getAbilities().flying) {
+            message("Map survey requires spectator mode or active creative flight.");
+            return false;
+        }
+        return true;
     }
 
     private static int pause() {
@@ -171,6 +213,9 @@ public final class MapSurveyClient {
 
     private static int reload() {
         config = MapSurveyConfig.load();
+        if (!active) {
+            surveyZMin = config.zMin;
+        }
         message("Map survey config reloaded from " + MapSurveyConfig.PATH.getFileName() + ".");
         return Command.SINGLE_SUCCESS;
     }
@@ -199,19 +244,36 @@ public final class MapSurveyClient {
     private static int setBounds(int xMin, int zMin, int xMax, int zMax) {
         config.setBounds(xMin, zMin, xMax, zMax);
         config.save();
+        if (!active) {
+            surveyZMin = config.zMin;
+        }
         message("Map survey bounds set to X " + config.xMin + ".." + config.xMax
             + ", Z " + config.zMin + ".." + config.zMax + ".");
         return Command.SINGLE_SUCCESS;
     }
 
+    private static int laneCount() {
+        int range = Math.max(0, config.zMax - surveyZMin);
+        return (int) Math.ceil(range / (double) config.laneSpacing) + 1;
+    }
+
+    private static int laneZ(int index) {
+        return Math.min(config.zMax, surveyZMin + index * config.laneSpacing);
+    }
+
+    private static boolean currentLaneEastbound() {
+        boolean evenLane = laneIndex % 2 == 0;
+        return firstLaneWestbound ? !evenLane : evenLane;
+    }
+
     private static Vec3 targetForCurrentPhase() {
-        int z = config.laneZ(laneIndex);
-        boolean eastbound = laneIndex % 2 == 0;
+        int z = laneZ(laneIndex);
+        boolean eastbound = currentLaneEastbound();
         return switch (phase) {
-            case ALIGN_TO_START -> new Vec3(config.xMin + 0.5D, config.altitude, config.zMin + 0.5D);
+            case ALIGN_TO_START -> new Vec3(config.xMin + 0.5D, config.altitude, surveyZMin + 0.5D);
             case SCAN_LANE -> new Vec3((eastbound ? config.xMax : config.xMin) + 0.5D, config.altitude, z + 0.5D);
             case SHIFT_LANE -> new Vec3((eastbound ? config.xMax : config.xMin) + 0.5D, config.altitude,
-                config.laneZ(Math.min(laneIndex + 1, config.laneCount() - 1)) + 0.5D);
+                laneZ(Math.min(laneIndex + 1, laneCount() - 1)) + 0.5D);
             case COMPLETE -> Minecraft.getInstance().player != null
                 ? Minecraft.getInstance().player.position()
                 : Vec3.ZERO;
@@ -222,7 +284,7 @@ public final class MapSurveyClient {
         switch (phase) {
             case ALIGN_TO_START -> phase = Phase.SCAN_LANE;
             case SCAN_LANE -> {
-                if (laneIndex >= config.laneCount() - 1) {
+                if (laneIndex >= laneCount() - 1) {
                     phase = Phase.COMPLETE;
                     stop(true);
                 } else {
@@ -260,7 +322,7 @@ public final class MapSurveyClient {
     }
 
     private static void showProgress(boolean detailed) {
-        int lanes = config.laneCount();
+        int lanes = laneCount();
         double pct = lanes <= 1 ? 100.0D : Math.min(100.0D, laneIndex * 100.0D / (lanes - 1));
         String state = !active ? "STOPPED" : paused ? "PAUSED" : "RUNNING";
         String text = "Map survey " + state + " | lane " + (laneIndex + 1) + "/" + lanes
@@ -268,7 +330,7 @@ public final class MapSurveyClient {
             + " | speed " + format(config.speedMultiplier) + " b/s";
         if (detailed) {
             text += " | X " + config.xMin + ".." + config.xMax
-                + " | Z " + config.zMin + ".." + config.zMax
+                + " | Z " + surveyZMin + ".." + config.zMax
                 + " | Y " + config.altitude + " | spacing " + config.laneSpacing;
         }
         message(text);
