@@ -1,5 +1,6 @@
 package de.everforge.mod;
 
+import de.everforge.mod.server.audit.PlayerCommandAudit;
 import de.everforge.mod.server.opac.OpenPacAutoMode;
 import de.everforge.mod.server.opac.OpenPacServerForceloadHotfix;
 import de.everforge.mod.server.worldedit.WorldEditOpenPacIntegration;
@@ -17,6 +18,8 @@ public final class EverforgeMod {
     public static final String MOD_ID = "everforge_mod";
 
     public EverforgeMod() {
+        PlayerCommandAudit.install();
+
         ModList mods = ModList.get();
         if (mods.isLoaded("openpartiesandclaims")) {
             OpenPacServerForceloadHotfix.install();
