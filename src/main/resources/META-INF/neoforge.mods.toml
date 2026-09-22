@@ -29,3 +29,10 @@ type="required"
 versionRange="[1.21.1]"
 ordering="NONE"
 side="BOTH"
+
+[[dependencies.everforge_mod]]
+modId="create"
+type="optional"
+versionRange="[6.0.10,6.1.0)"
+ordering="NONE"
+side="BOTH"
