@@ -1,6 +1,7 @@
 package de.everforge.mod;
 
 import de.everforge.mod.server.audit.PlayerCommandAudit;
+import de.everforge.mod.server.create.CreateLogisticsNetworkManager;
 import de.everforge.mod.server.opac.OpenPacAutoMode;
 import de.everforge.mod.server.opac.OpenPacServerForceloadHotfix;
 import de.everforge.mod.server.worldedit.WorldEditOpenPacIntegration;
@@ -21,6 +22,9 @@ public final class EverforgeMod {
         PlayerCommandAudit.install();
 
         ModList mods = ModList.get();
+        if (mods.isLoaded("create")) {
+            CreateLogisticsNetworkManager.install();
+        }
         if (mods.isLoaded("openpartiesandclaims")) {
             OpenPacServerForceloadHotfix.install();
             OpenPacAutoMode.install();
