@@ -2,6 +2,18 @@
 
 All notable changes to the Everforge Mod are documented in this file.
 
+## 0.4.1
+
+### Added
+
+- Persistent player presence tracking using NeoForge login and logout events.
+- Exact `last_login` and `last_seen` timestamps written to `everforge/presence/players.json` for use by Everforge Admin and member profiles.
+
+### Changed
+
+- Release versions are now derived from Git tags instead of being maintained manually in `gradle.properties`.
+- Tagged releases verify that the tag matches `vX.Y.Z`, the tagged commit is contained in `main`, the generated JAR filename matches the tag version, and the embedded NeoForge mod version matches as well.
+
 ## 0.4.0
 
 ### Added
