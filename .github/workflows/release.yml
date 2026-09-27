@@ -13,8 +13,42 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout tagged commit
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          TAG="${GITHUB_REF_NAME}"
+
+          if [[ ! "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Release tag must match vX.Y.Z, got: $TAG"
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+
+          git fetch origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Tagged commit $GITHUB_SHA is not contained in origin/main"
+            exit 1
+          fi
+
+          DEFAULT_VERSION="$(grep '^mod_version=' gradle.properties | cut -d= -f2-)"
+          if [[ "$DEFAULT_VERSION" != "0.0.0-dev" ]]; then
+            echo "gradle.properties must keep the neutral development version 0.0.0-dev"
+            echo "Found: $DEFAULT_VERSION"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release version: $VERSION"
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -26,26 +60,39 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Build
-        run: ./gradlew build
+      - name: Build tagged release
+        run: ./gradlew build -Pmod_version="${{ steps.version.outputs.version }}"
 
-      - name: Find release JAR
+      - name: Verify release artifact
         id: jar
         shell: bash
         run: |
-          JAR="$(find build/libs -maxdepth 1 -type f -name '*.jar' \
-            ! -name '*-sources.jar' \
-            ! -name '*-dev.jar' \
-            ! -name '*-dev-shadow.jar' \
-            | head -n 1)"
+          set -euo pipefail
 
-          if [ -z "$JAR" ]; then
-            echo "No release JAR found in build/libs"
+          VERSION="${{ steps.version.outputs.version }}"
+          EXPECTED="build/libs/everforge-mod-${VERSION}.jar"
+
+          if [[ ! -f "$EXPECTED" ]]; then
+            echo "Expected release JAR not found: $EXPECTED"
+            echo "Available artifacts:"
+            find build/libs -maxdepth 1 -type f -printf '  %f\n' | sort
             exit 1
           fi
 
-          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
-          echo "Using release JAR: $JAR"
+          EMBEDDED_VERSION="$(
+            unzip -p "$EXPECTED" META-INF/neoforge.mods.toml               | sed -n 's/^version="\(.*\)"$/\1/p'               | head -n 1
+          )"
+
+          if [[ "$EMBEDDED_VERSION" != "$VERSION" ]]; then
+            echo "Embedded mod version mismatch"
+            echo "Tag version:      $VERSION"
+            echo "Embedded version: $EMBEDDED_VERSION"
+            exit 1
+          fi
+
+          echo "jar=$EXPECTED" >> "$GITHUB_OUTPUT"
+          echo "Verified release JAR: $EXPECTED"
+          echo "Verified embedded version: $EMBEDDED_VERSION"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
