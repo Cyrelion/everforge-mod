@@ -1,6 +1,7 @@
 package de.everforge.mod;
 
 import de.everforge.mod.server.audit.PlayerCommandAudit;
+import de.everforge.mod.server.audit.PlayerPresenceTracker;
 import de.everforge.mod.server.create.CreateLogisticsNetworkManager;
 import de.everforge.mod.server.opac.OpenPacAutoMode;
 import de.everforge.mod.server.opac.OpenPacServerForceloadHotfix;
@@ -20,6 +21,7 @@ public final class EverforgeMod {
 
     public EverforgeMod() {
         PlayerCommandAudit.install();
+        PlayerPresenceTracker.install();
 
         ModList mods = ModList.get();
         if (mods.isLoaded("create")) {
