@@ -1,7 +1,7 @@
 package de.everforge.mod.server.audit;
 
 import com.google.gson.JsonObject;
-import de.everforge.mod.EverforgeMod;
+import com.google.gson.JsonParser;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.loading.FMLPaths;
@@ -9,12 +9,14 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.CommandEvent;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
  * Local audit log for commands submitted in-game by privileged players.
@@ -35,6 +37,9 @@ public final class PlayerCommandAudit {
             .resolve("audit")
             .resolve("commands.jsonl");
 
+    private static final CommandAuditStore STORE = new CommandAuditStore(AUDIT_FILE, PlayerCommandAudit::timestamp);
+    private static ScheduledExecutorService maintenance;
+
     private PlayerCommandAudit() {
     }
 
@@ -44,6 +49,8 @@ public final class PlayerCommandAudit {
         }
 
         NeoForge.EVENT_BUS.addListener(PlayerCommandAudit::onCommand);
+        NeoForge.EVENT_BUS.addListener(PlayerCommandAudit::onServerStarted);
+        NeoForge.EVENT_BUS.addListener(PlayerCommandAudit::onServerStopped);
         System.out.println("[Everforge] Player command audit installed: " + AUDIT_FILE);
     }
 
@@ -76,20 +83,53 @@ public final class PlayerCommandAudit {
         append(entry.toString());
     }
 
+    private static Instant timestamp(String line) {
+        try {
+            JsonObject entry = JsonParser.parseString(line).getAsJsonObject();
+            if (!entry.has("timestamp") || !entry.get("timestamp").isJsonPrimitive()
+                    || !entry.get("timestamp").getAsJsonPrimitive().isString()) return null;
+            return Instant.parse(entry.get("timestamp").getAsString());
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static synchronized void onServerStarted(ServerStartedEvent event) {
+        if (maintenance != null) return;
+        maintenance = Executors.newSingleThreadScheduledExecutor(task -> {
+            Thread thread = new Thread(task, "everforge-command-audit-retention");
+            thread.setDaemon(true);
+            return thread;
+        });
+        maintenance.scheduleWithFixedDelay(PlayerCommandAudit::maintain, 0, 1, TimeUnit.HOURS);
+    }
+
+    private static synchronized void onServerStopped(ServerStoppedEvent event) {
+        if (maintenance != null) {
+            maintenance.shutdownNow();
+            maintenance = null;
+        }
+    }
+
+    private static void maintain() {
+        try {
+            CommandAuditStore.Result result = STORE.maintain(Instant.now());
+            if (result.invalid() > 0) System.err.println("[Everforge] Command audit: "
+                    + result.invalid() + " entries need manual timestamp review");
+            if (result.removed() > 0) System.out.println("[Everforge] Command audit removed "
+                    + result.removed() + " entries older than 30 days");
+        } catch (IOException | RuntimeException e) {
+            System.err.println("[Everforge] Command audit maintenance failed: " + e);
+        }
+    }
+
     private static void append(String json) {
         try {
-            Files.createDirectories(AUDIT_FILE.getParent());
-            Files.writeString(
-                    AUDIT_FILE,
-                    json + System.lineSeparator(),
-                    StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.WRITE,
-                    StandardOpenOption.APPEND
-            );
-        } catch (IOException e) {
+            STORE.append(json, Instant.now());
+        } catch (IOException | RuntimeException e) {
             System.err.println("[Everforge] Could not append player command audit to "
                     + AUDIT_FILE + ": " + e);
         }
     }
 }
+
