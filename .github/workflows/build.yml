@@ -28,6 +28,9 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
+      - name: Audit retention regressions
+        run: bash scripts/test-command-audit.sh
+
       - name: Build
         run: ./gradlew build
 
