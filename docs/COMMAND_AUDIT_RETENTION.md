@@ -35,3 +35,8 @@ Regression checks: `bash scripts/test-command-audit.sh` (JDK 17+ for the isolate
 store test; the actual mod build continues to require JDK 21). CI runs these
 checks and then the complete NeoForge Gradle build. Use a temporary TEST world
 to verify one privileged command, server restart, and Web archive display.
+
+The standalone regression executable lives under `scripts/tests`, outside the
+Gradle JUnit test source set. The required CI regression step invokes it explicitly
+and fails the workflow on any failed assertion. Gradle test discovery remains
+unchanged for future framework-based tests.
